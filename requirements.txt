@@ -1,6 +1,6 @@
 streamlit
 
-ploty
+plotly
 
 numpy
 
