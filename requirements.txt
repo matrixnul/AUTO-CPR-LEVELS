@@ -1,9 +1,6 @@
 streamlit
 
-pandas
-
 ploty
 
 numpy
 
-yfinance
