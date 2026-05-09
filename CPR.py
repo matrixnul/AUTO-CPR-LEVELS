@@ -1,6 +1,28 @@
 import streamlit as st
+import yfinance as yf
+from datetime import datetime
 
-# --- 1. CPR & PIVOT CALCULATION ENGINE ---
+# --- 1. DATA FETCHING ENGINE ---
+def fetch_nifty_data():
+    try:
+        # ^NSEI is the ticker for Nifty 50
+        nifty = yf.Ticker("^NSEI")
+        # Fetching last 5 days to ensure we get the latest completed session
+        df = nifty.history(period="5d")
+        if not df.empty:
+            # Get the last row (most recent closed session)
+            last_session = df.iloc[-1]
+            return {
+                "high": round(last_session['High'], 2),
+                "low": round(last_session['Low'], 2),
+                "close": round(last_session['Close'], 2),
+                "date": last_session.name.strftime('%d-%b-%Y')
+            }
+    except Exception as e:
+        st.error(f"Error fetching data: {e}")
+    return None
+
+# --- 2. CPR & PIVOT CALCULATION ENGINE ---
 def calculate_pivots(high, low, close):
     p = (high + low + close) / 3
     bc = (high + low) / 2
@@ -15,8 +37,8 @@ def calculate_pivots(high, low, close):
         "S4": round((low - 2 * (high - p)) - h_l_diff, 2)
     }
 
-# --- 2. UI CONFIG & STYLING ---
-st.set_page_config(page_title="Nifty CPR Dashboard", layout="wide")
+# --- 3. UI CONFIG & STYLING ---
+st.set_page_config(page_title="Nifty CPR Auto-Pro", layout="wide")
 
 st.markdown("""
     <style>
@@ -36,18 +58,27 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# Sidebar Inputs
-st.sidebar.header("Market Data Inputs")
-prev_high = st.sidebar.number_input("Prev Day High", value=24253.80)
-prev_low = st.sidebar.number_input("Prev Day Low", value=24126.65)
-prev_close = st.sidebar.number_input("Prev Day Close", value=24176.15)
+# --- 4. DATA PROCESSING ---
+st.sidebar.header("Data Source")
+auto_data = fetch_nifty_data()
 
-levels = calculate_pivots(prev_high, prev_low, prev_close)
+if auto_data:
+    st.sidebar.success(f"Fetched Data for: {auto_data['date']}")
+    h_val = st.sidebar.number_input("High", value=auto_data['high'])
+    l_val = st.sidebar.number_input("Low", value=auto_data['low'])
+    c_val = st.sidebar.number_input("Close", value=auto_data['close'])
+else:
+    st.sidebar.warning("Could not fetch live data. Enter manually:")
+    h_val = st.sidebar.number_input("High", value=24253.80)
+    l_val = st.sidebar.number_input("Low", value=24126.65)
+    c_val = st.sidebar.number_input("Close", value=24176.15)
+
+levels = calculate_pivots(h_val, l_val, c_val)
 width = round(abs(levels['TC'] - levels['BC']), 2)
 
-st.title("📊 Nifty CPR Dashboard")
+st.title("📊 Nifty CPR Auto-Dashboard")
 
-# --- 3. CPR SECTION ---
+# --- 5. CPR SECTION ---
 st.subheader("Central Pivot Range")
 c1, c2, c3, c4 = st.columns(4)
 
@@ -60,7 +91,7 @@ with c4:
 
 st.divider()
 
-# --- 4. RESISTANCE & SUPPORT GRID ---
+# --- 6. RESISTANCE & SUPPORT GRID ---
 col_r, col_s = st.columns(2)
 
 with col_r:
